@@ -1,2 +1,2 @@
-# bubble-demo
+# bubble
 React bubble plot test
