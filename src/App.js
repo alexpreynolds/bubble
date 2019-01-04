@@ -40,7 +40,7 @@ class App extends Component {
   constructor(props) {
     super(props);
     this.state = {
-      activeTab: '2',
+      activeTab: '1',
       isMenuOpen: false,
       isPaneOpen: false,
       applicationData: Constants.defaults.data,
