@@ -29,14 +29,18 @@ import 'react-sliding-pane/dist/react-sliding-pane.css';
 // Application constants
 import * as Constants from './Constants.js';
 
-// Bubble plot
+// Bubble plot + components
 import BubblePlot from './BubblePlot';
+import Legend from './Legend';
+
+// d3 CSV parser
+import * as d3Dsv from 'd3-dsv';
 
 class App extends Component {
   constructor(props) {
     super(props);
     this.state = {
-      activeTab: '1',
+      activeTab: '2',
       isMenuOpen: false,
       isPaneOpen: false,
       applicationData: Constants.defaults.data,
@@ -44,6 +48,9 @@ class App extends Component {
       height: props.height, 
       width: props.width,
       contentParentHeight: 0,
+      contentParentWidth: 0,
+      colormap: Constants.defaults.colormap,
+      columnHeaders: "realname,chromosome,count"
     };
   }
   
@@ -60,14 +67,17 @@ class App extends Component {
   updateViewportDimensions = () => {
     let windowInnerHeight = window.innerHeight + "px";
     let windowInnerWidth = window.innerWidth + "px";
-    let contentParentHeight = parseInt(parseFloat(window.innerHeight) - 195) + "px";
+    let contentParentHeight = parseInt(parseFloat(window.innerHeight) - 155) + "px";
+    let contentParentWidth = parseInt(parseFloat(window.innerWidth) - 55) + "px";
     this.setState({
       height: windowInnerHeight,
       width: windowInnerWidth,
       contentParentHeight: contentParentHeight,
+      contentParentWidth: contentParentWidth,
     }, () => { 
       console.log("W x H", this.state.width, this.state.height);
-      console.log("Content parent H", this.state.contentParentHeight)
+      console.log("Content parent H", this.state.contentParentHeight);
+      console.log("Content parent W", this.state.contentParentWidth);
     })
   }
   
@@ -91,6 +101,85 @@ class App extends Component {
     });
   }
   
+  filterDataByChromosomeAndReformatAsCSV = (c) => {
+    var labeledData = this.state.columnHeaders + "\n" + this.state.applicationData;
+    var data = d3Dsv.csvParse(labeledData);
+    var filteredData = []
+    data.forEach(function(d) {
+      if (d.chromosome === c) {
+        filteredData.push(d);
+      }
+    });
+    var filteredDataRowsAsCSV = [];
+    var headers = this.state.columnHeaders.split(',')
+    filteredData.forEach((d) => {
+      var values = []
+      headers.forEach((h) => {
+        values.push(d[h]);
+      })
+      filteredDataRowsAsCSV.push(values.join(','))
+    });
+    return filteredDataRowsAsCSV.join('\n');
+  }
+  
+  splitDataIntoPerChromosomeGrid = () => {
+    var rows = [];
+    var chromosomes = Object.keys(Constants.genome_sizes[Constants.defaults.genome]);
+    var collator = new Intl.Collator(undefined, {numeric: true, sensitivity: 'base'});
+    var chromosomes_sorted = chromosomes.sort(collator.compare);
+    var n = chromosomes_sorted.length;
+    var r = Constants.defaults.rows;
+    var c = Constants.defaults.cols;
+    var w = parseInt((parseInt(this.state.contentParentWidth) / Constants.defaults.cols) - 23) + 'px';
+    var h = parseInt((parseInt(this.state.contentParentHeight) / Constants.defaults.rows)) + 'px';
+    console.log("this.state.contentParentWidth", this.state.contentParentWidth);
+    console.log("this.state.contentParentHeight", this.state.contentParentHeight);
+    console.log("cell w", w);
+    console.log("cell h", h);
+    let rowStyle = ".per-chromosome-row { height: " + h + "; margin-bottom: 10px; }";
+    rows.push(<style>{ rowStyle }</style>);
+    for (var row_idx = 0; row_idx < r; row_idx++) {
+      var cells = [];
+      for (var col_idx = 0; col_idx < c; col_idx++) {
+        if (row_idx*c + col_idx < n) {
+          var cell_offset = row_idx * c + col_idx;
+          var cell_label = chromosomes_sorted[cell_offset];
+          var cell_idx = cell_offset;
+          var cell_data = this.filterDataByChromosomeAndReformatAsCSV(cell_label);
+          cells.push(
+            <div>
+              <div className="per-chromosome-row-cell-header">{cell_label}</div>
+              <BubblePlot
+                bubblePlotIdPrefix="bubblePlot-perChromosome"
+                bubblePlotIdSuffix={cell_idx}
+                plotData={cell_data}
+                plotDataColumnHeaders={this.state.columnHeaders}
+                plotColormap={this.state.colormap}
+                plotRadiusScaleFactor={1500}
+                plotAttractStrength={0.1}
+                plotClusterStrength={Constants.defaults.graph.clusterStrength}
+                plotClusterCenterInertia={Constants.defaults.graph.clusterCenterInertia}
+                svgWidth={w}
+                svgHeight={h} />
+            </div>
+          );
+        }
+        else {
+          cells.push("");
+        }
+      }
+      rows.push(<Row className="per-chromosome-row">
+        <Col xs={2} className="per-chromosome-row-cell">{cells[0]}</Col>
+        <Col xs={2} className="per-chromosome-row-cell">{cells[1]}</Col>
+        <Col xs={2} className="per-chromosome-row-cell">{cells[2]}</Col>
+        <Col xs={2} className="per-chromosome-row-cell">{cells[3]}</Col>
+        <Col xs={2} className="per-chromosome-row-cell">{cells[4]}</Col>
+        <Col xs={2} className="per-chromosome-row-cell">{cells[5]}</Col>
+      </Row>)
+    }
+    return rows;
+  }
+  
   render() {
     return (
       <div className="application" ref={ref => this.el = ref}>
@@ -99,7 +188,7 @@ class App extends Component {
       
           <Navbar color="dark" dark expand="md">
             <NavbarBrand href="/">
-              <img src="./logo-inverse.svg" className="brand-content-logo" alt="altius-logo" href="https://www.altius.org" /> Index NMF Summary
+              <img src="./logo-inverse.svg" className="brand-content-logo" alt="altius-logo" href="https://www.altius.org" /> Index Summary
             </NavbarBrand>
             <NavbarToggler onClick={this.toggleMenu} />
             <Collapse isOpen={this.state.isMenuOpen} navbar>
@@ -136,16 +225,28 @@ class App extends Component {
           <TabPane tabId="1">
             <Row>
               <Col sm="12">
-                <h4>Index elements, by strongest NMF assignment (genome-wide)</h4>
+                <h4 style={{textAlign:"center"}}>Index element cardinality, by strongest NMF assignment (genome-wide)</h4>
                 <div className="svg-container">
-                  <Row style={{"height":this.state.contentHeight, zIndex:"-1000"}}>
-                    <Col xs="10" className="gw-left">
-                      <BubblePlot
-                        data={this.state.applicationData}
-                        svgWidth={this.state.contentParentHeight}
-                        svgHeight={this.state.contentParentHeight} />
+                  <Row style={{"height":this.state.contentParentHeight}}>
+                    <Col xs="12" className="gw-left">
+                      <div className="bubblePlot-container">
+                        <BubblePlot
+                          bubblePlotIdPrefix="bubblePlot"
+                          bubblePlotIdSuffix="1"
+                          plotData={this.state.applicationData}
+                          plotDataColumnHeaders={this.state.columnHeaders}
+                          plotColormap={this.state.colormap}
+                          plotRadiusScaleFactor={1250}
+                          plotAttractStrength={Constants.defaults.graph.attractStrength}
+                          plotClusterStrength={Constants.defaults.graph.clusterStrength}
+                          plotClusterCenterInertia={Constants.defaults.graph.clusterCenterInertia}
+                          svgWidth={this.state.contentParentWidth}
+                          svgHeight={this.state.contentParentHeight} />
+                      </div>
+                      <Legend
+                        style={{zIndex: 1000}}
+                        colormap={this.state.colormap} />
                     </Col>
-                    <Col xs="2" className="gw-right">RIGHT</Col>
                   </Row>
                 </div>
               </Col>
@@ -154,7 +255,16 @@ class App extends Component {
           <TabPane tabId="2">
             <Row>
               <Col sm="12">
-                <h4>Index elements, by strongest NMF assignment (per chromosome)</h4>
+                <h4 style={{textAlign:"center"}}>Index element cardinality, by strongest NMF assignment (per chromosome)</h4>
+                <div className="svg-container">
+                  <Row style={{"height":this.state.contentParentHeight}}>
+                    <Col xs="12" className="gw-left">
+                      <div className="bubblePlot-container">
+                        { this.splitDataIntoPerChromosomeGrid() }
+                      </div>
+                    </Col>
+                  </Row>
+                </div>
               </Col>
             </Row>
           </TabPane>
@@ -188,7 +298,7 @@ class App extends Component {
                   }}
                   />
                 <FormText color="muted">
-                  JSON-formatted object containing a breakdown of NMF set and subset membership
+                  CSV containing a breakdown of set and subset membership (name, chromosome, count)
                 </FormText>
               </FormGroup>
               <Button 

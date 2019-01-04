@@ -30,22 +30,21 @@ code {
     margin: 15px;
     padding: 10px;
     height: calc(100vh - 100px - 15px - 15px);
-    border: 1px dotted black;
+/*     border: 1px dotted black; */
 }
 
 .svg-container {
     margin: 15px;
     width: calc(100vw - 15px - 15px - 15px - 15px - 10px - 10px);
+    position: relative;
 }
 
 .gw-left {
     padding: 0px !important;
-    background-color: grey;
 }
 
 .gw-right {
     padding: 0px !important;
-    background-color: lightgrey;
 }
 
 .brand-content-logo {
@@ -63,4 +62,49 @@ code {
 
 .application-data-textarea {
     height: calc(50vh) !important;
+}
+
+div.tooltip {   
+    position: absolute;           
+    text-align: center;           
+    width: 200px;                 
+    height: 60px;                 
+    padding: 2px;             
+    font-size: 12px;
+    background: lightsteelblue;   
+    border: 0px;
+    pointer-events: none;
+}
+
+.bubblePlot-container {
+    text-align: center;
+}
+
+.bubblePlot {
+    position: absolute;
+}
+
+#legend {
+    position: absolute;
+    border: 1px solid #d8d8d8;
+    margin-left: calc(100vw - 320px);
+    width: calc(300px - 40px);
+    background-color: rgba(0,0,0,0.05);
+    padding: 10px;
+    font-size: 0.6em;
+}
+
+.per-chromosome-row {
+}
+
+.per-chromosome-row-cell {
+    padding: 0px;
+    margin: 0px;
+}
+
+.per-chromosome-row-cell-header {
+    font-size: smaller;
+    font-weight: 100;
+    background-color: #adadad;
+    color: white;
 }
